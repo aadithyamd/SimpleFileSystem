@@ -46,6 +46,8 @@ int openDisk(char *filename, int nblocks);
 int closeDisks();
 int readBlock(int disk, int blockno, struct block *blk);
 int writeBlock(int disk, int blockno, struct block *blk);
+int AllocateBlock(int disk);
+int FreeBlock(int disk, int blockno);
 /*void syncDisk();*/
 
 void initFile(char *filename, int nblocks)
@@ -165,5 +167,30 @@ int writeBlock(int disk, int blockno, struct block *blk)
 
 	fseek(fp, blockno * sizeof(struct block), SEEK_SET);
 	fwrite(blk, sizeof(struct block), 1, fp);
+	return 0;
+}
+
+int AllocateBlock(int disk)
+{
+	/* Impliment Block Allocation */
+	return 0;
+}
+
+int FreeBlock(int disk, int blockno)
+{
+	struct block blk;
+	int b;
+	int n;
+
+	b = 1 + blockno / MAXFREE;
+	n = blockno % MAXFREE;
+	readBlock(disk, b, *blk);
+	if(blk.blk.f.free[n] == true) {
+		return 0;
+	} else {
+		/* Todo: Add protection here */
+		blk.blk.free[n] = true;
+	}
+
 	return 0;
 }
