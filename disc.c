@@ -1,17 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
+#include <string.h>
 
 #define MAXDEG 510
 #define MAXFREE 4082
+#define MAXDISKS 100
+#define INODEDATA 4016
 
-FILE *disk_p[100] = {NULL};
+FILE *disk_p[MAXDISKS] = {NULL};
+int disk_size[MAXDISKS] = {-1};
 int num_disk = -1;
+int inode_no = -1;
 
 struct inode {
 	int inode_no;
 	long size;
-	char data[4016];
+	char data[INODEDATA];
 	int point[12];
 	int Single;
 	int Double;
@@ -48,7 +54,14 @@ int readBlock(int disk, int blockno, struct block *blk);
 int writeBlock(int disk, int blockno, struct block *blk);
 int AllocateBlock(int disk);
 int FreeBlock(int disk, int blockno);
+int getInodeNo();
 /*void syncDisk();*/
+
+int getInodeNo()
+{
+	++inode_no;
+	return inode_no;
+}
 
 void initFile(char *filename, int nblocks)
 {
@@ -74,10 +87,8 @@ void initFile(char *filename, int nblocks)
 	fwrite(&blk, sizeof(blk), 1, fp);
 
 	/* write bit vector for free list on next n blocks */
-	n = nblocks / MAXFREE;
-	if (nblocks % MAXFREE > 0) {
-		++n;
-	}
+	n = (int) ceil(nblocks * 1.0 / MAXFREE);
+
 	/* n for bit vector 1 for b tree root */
 	n_used = n + 1;
 
@@ -97,6 +108,7 @@ void initFile(char *filename, int nblocks)
 
 	if (n_used % MAXFREE > 0) {
 		blk.blockno = k;
+		blk.blk.f.n = n - k;
 		++k;
 		for (i = n_used % MAXFREE; i < MAXFREE; ++i) {
 			blk.blk.f.free[i] = true;
@@ -130,6 +142,7 @@ int openDisk(char *filename, int nblocks)
 
 	num_disk++;
 	disk_p[num_disk] = fopen(filename, "rb+");
+	disk_size[num_disk] = nblocks;
 
 	return num_disk;
 }
@@ -172,8 +185,33 @@ int writeBlock(int disk, int blockno, struct block *blk)
 
 int AllocateBlock(int disk)
 {
-	/* Impliment Block Allocation */
-	return 0;
+	struct block blk;
+	int b;
+	int n;
+	int i;
+
+	n = (int) ceil(disk_size[disk] * 1.0 / MAXFREE);
+	for (b = 1; b <=n; ++b) {
+		readBlock(disk, b, &blk);
+		
+		/* break if it is not a freeList block */
+		if (blk.type != 2) {
+			break;
+		}
+		
+		for (i = 0; i < MAXFREE; ++i) {
+			/* return the free block no */
+			if(blk.blk.f.free[i] == true) {
+				blk.blk.f.free[i] = false;
+				writeBlock(disk, b, &blk);
+
+				return (b - 1) * MAXFREE + i;	
+			}
+		}
+	}
+
+	/* Free blocks are not available */
+	return -1;
 }
 
 int FreeBlock(int disk, int blockno)
@@ -184,13 +222,14 @@ int FreeBlock(int disk, int blockno)
 
 	b = 1 + blockno / MAXFREE;
 	n = blockno % MAXFREE;
-	readBlock(disk, b, *blk);
+	readBlock(disk, b, &blk);
 	if(blk.blk.f.free[n] == true) {
 		return 0;
 	} else {
 		/* Todo: Add protection here */
-		blk.blk.free[n] = true;
+		blk.blk.f.free[n] = true;
 	}
+	writeBlock(disk, b, &blk);
 
 	return 0;
 }
