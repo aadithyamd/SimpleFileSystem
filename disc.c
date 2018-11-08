@@ -3,11 +3,13 @@
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
+#include <openssl/sha.h>
 
-#define MAXDEG 510
+#define MAXDEG 102
 #define MAXFREE 4082
 #define MAXDISKS 100
-#define INODEDATA 4016
+#define INODEDATA 3960
+#define DISKSIZE 256 * 1024
 
 FILE *disk_p[MAXDISKS] = {NULL};
 int disk_size[MAXDISKS] = {-1};
@@ -17,6 +19,8 @@ int inode_no = -1;
 struct inode {
 	int inode_no;
 	long size;
+	bool is_dir;
+	char name[40];
 	char data[INODEDATA];
 	int point[12];
 	int Single;
@@ -29,11 +33,12 @@ struct freeList {
 };
 
 struct bnode {
-    int count;
-    int key[MAXDEG - 1];
-    int (ptr[MAXDEG]);
-    int par;
-    int is_leaf;
+	int count;
+	unsigned char key[MAXDEG - 1][SHA256_DIGEST_LENGTH];
+	int record_ptr[MAXDEG - 1];
+	int ptr[MAXDEG];
+	int par;
+	bool is_leaf;
 };
 
 union block_type {
@@ -126,6 +131,11 @@ void initFile(char *filename, int nblocks)
 		++k;
 		fwrite(&blk, sizeof(blk), 1, fp);
 	}
+
+	/* Inode number stored at end of file */
+	fseek(fp, -1 * sizeof(int), SEEK_END);
+	fwrite(&inode_no, sizeof(int), 1, fp);
+
 	fclose(fp);
 }
 
@@ -142,6 +152,12 @@ int openDisk(char *filename, int nblocks)
 
 	num_disk++;
 	disk_p[num_disk] = fopen(filename, "rb+");
+
+	if (inode_no == -1 && num_disk == 0) {
+		fseek(disk_p[num_disk], -1 * sizeof(int), SEEK_END);
+		fread(&inode_no, sizeof(int), 1, disk_p[num_disk]);
+	}
+
 	disk_size[num_disk] = nblocks;
 
 	return num_disk;
@@ -149,8 +165,12 @@ int openDisk(char *filename, int nblocks)
 
 int closeDisk(int n)
 {
+	if (n == 0) {
+		fseek(disk_p[n], -1 * sizeof(int), SEEK_END);
+		fwrite(&inode_no, sizeof(int), 1, disk_p[n]);
+	}
 	fclose(disk_p[n]);
-
+	
 	return n;
 }
 
@@ -180,6 +200,7 @@ int writeBlock(int disk, int blockno, struct block *blk)
 
 	fseek(fp, blockno * sizeof(struct block), SEEK_SET);
 	fwrite(blk, sizeof(struct block), 1, fp);
+
 	return 0;
 }
 
@@ -193,12 +214,12 @@ int AllocateBlock(int disk)
 	n = (int) ceil(disk_size[disk] * 1.0 / MAXFREE);
 	for (b = 1; b <=n; ++b) {
 		readBlock(disk, b, &blk);
-		
+
 		/* break if it is not a freeList block */
 		if (blk.type != 2) {
 			break;
 		}
-		
+
 		for (i = 0; i < MAXFREE; ++i) {
 			/* return the free block no */
 			if(blk.blk.f.free[i] == true) {

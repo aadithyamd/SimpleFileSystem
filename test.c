@@ -1,7 +1,5 @@
 #include "disc.c"
 
-#define DISKSIZE 1024 * 256
-
 int readData(char *s1, int length) {
 	strcpy(s1, "testing inode working$ ok!"); 
 	return 27;
@@ -41,10 +39,10 @@ void test(int f1, int nblocks)
 			readBlock(f1, (i - 1) * MAXFREE + k, &b);
 			printf("Block no: %d Type: %d ", b.blockno, b.type);
 			if (b.type == 2) {
-				printf("N : %d [%d %d ..]\n", b.blk.f.n,
+/*				printf("N : %d [%d %d ..]\n", b.blk.f.n,
 						b.blk.f.free[0], 
 						b.blk.f.free[1]);
-			} else if (b.type == 1) {
+*/			} else if (b.type == 1) {
 				printf("count : %d isleaf: %d\n", 
 						b.blk.b.count, 
 						b.blk.b.is_leaf);
