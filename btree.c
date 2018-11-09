@@ -60,6 +60,65 @@ int binary_search(unsigned char key[][SHA256_DIGEST_LENGTH],
 	return mid + 1;
 }
 
+int modify_file(int disk, int blockno, char data[])
+{
+	struct block blk;
+
+	readBlock(disk, blockno, &blk);
+	if (blk.type != 0) {
+		printf("Error not a file\n");
+		return -1;
+	}
+	strcpy(blk.blk.i.data, data);
+	blk.blk.i.size = (int) strlen(data);
+	writeBlock(disk, blockno, &blk);
+
+	return 0;
+}
+
+int cat_file(int disk, int blockno)
+{
+	struct block blk;
+
+	readBlock(disk, blockno, &blk);
+	if (blk.type != 0) {
+		printf("Error not a file\n");
+		return -1;
+	}
+	printf("%s\n", blk.blk.i.data);
+	
+	return 0;
+}
+
+int btree_search(int disk, char name[])
+{
+	struct block rblock;
+	struct block *blk = NULL;
+	unsigned char hash[SHA256_DIGEST_LENGTH];
+	int i;
+	int cmp;
+	int n;
+
+	blk = &rblock;
+	SHA256((unsigned char *) name, strlen(name), hash);
+	i = 0;
+	do {
+		readBlock(disk, i, blk);
+		n = blk->blk.b.count;
+		cmp = -1;
+		for (i = 0; i < n && cmp < 0; ++i) {
+			cmp = strncmp((const char *)blk->blk.b.key[i], 
+				(const char *) hash, SHA256_DIGEST_LENGTH - 3);
+			if (cmp == 0) {
+				return blk->blk.b.record_ptr[i];
+			}
+		}
+		i = blk->blk.b.ptr[i];
+	} while (blk->blk.b.is_leaf == false);
+
+	return -1;
+}
+
 int bnode_copy(struct bnode *dest, struct bnode *src, int beg, int end)
 {
 	int n;

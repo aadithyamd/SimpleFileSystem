@@ -35,8 +35,6 @@ void test(int f1, int nblocks)
 		btree_insert(f1, name, data);
 	}
 	
-   	return; 
-	
 	n = 1 + nblocks / sizeof(struct block) ;
 	for (i = 1; i <= n; ++i) {
 		readBlock(f1, i, &b1);
