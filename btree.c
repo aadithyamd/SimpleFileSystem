@@ -272,31 +272,5 @@ int btree_insert(int disk, char name[], char data[])
 	i = blk->blockno;
 	writeBlock(disk, i, blk);
 	
-	inorder(disk, 0);
-
 	return 0;
 }
-
-/*
-int main()
-{
-	int f1;
-	int n;
-	char name[40];
-	char data[3500];
-
-	f1 = openDisk("hd1", DISKSIZE);
-	printf("N: ");	
-	scanf("%d", &n);
-	while (n--) {
-		printf("Name: ");
-		scanf("%s", name);
-		btree_insert(f1, name, data);
-	}
-
-	inorder(f1, 0);
-
-	closeDisk(f1);
-
-	return 0;
-}*/
