@@ -32,7 +32,7 @@ void test(int f1, int nblocks)
 		printf("Name: ");
 		scanf("%s", name);
 		readData(data, INODEDATA);
-		btree_insert(f1, name, data);
+		btree_insert(f1, name, data, 0);
 	}
 	
 	n = 1 + nblocks / sizeof(struct block) ;
@@ -69,6 +69,9 @@ int main()
 	int f1;
 
 	printf("Block Size :%lu\n", sizeof(struct block));
+	printf("Inode Size :%lu\n", sizeof(struct inode));
+	printf("Free list Size :%lu\n", sizeof(struct freeList));
+	printf("Bnode Size :%lu\n", sizeof(struct bnode));
 	f1 = openDisk("hd1", DISKSIZE);
 
 	test(f1, DISKSIZE);

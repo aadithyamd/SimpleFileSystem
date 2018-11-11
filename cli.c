@@ -11,8 +11,8 @@
 void intro_message()
 {
 	printf("Simple File system v2 (Nov 09 2018, 14:31:34)\n" 
-		"[GCC 7.3.0] on linux \n"
-		"Type help for more information.\n");
+			"[GCC 7.3.0] on linux \n"
+			"Type 'help' or 'credits' for more information.\n");
 }
 int readData(char *s1, int length) {
 	char ch;
@@ -31,21 +31,40 @@ int readData(char *s1, int length) {
 	if (s1[0] == EOF) {
 		printf("exit\n");
 		strcpy(s1,"exit");
-		
+
 	}
 
 	return strlen(s1);
 }
 
+void help()
+{
+
+	printf("ls               : List all available files.\n");
+	printf("cd <path>        : To change the current working "
+				"directory.\n");
+	printf("mkdir <filename> : To Add the new directory in the "
+				"current directory\n");
+	printf("cat <filename>   : Show the content of given "
+				"file if it exist else show error.\n");
+	printf("vim <filename>   : Overwrite a file if it"
+				" exists else creates new one.\n");
+	printf("clear            : Clear the screen.\n");
+	printf("exit             : To exit from the terminal."
+				" Alternate : press (CTRL + d) \n");
+}
 
 int main(int argc, char const *argv[])
 {
 	int disk;
 	int i;
 	char ch;
+	int treeno;
 	char command[81];
 	char filename[100];
 	char line[100];
+
+	treeno = 0;
 
 	disk = openDisk("hd1", DISKSIZE);
 	intro_message();
@@ -62,11 +81,13 @@ int main(int argc, char const *argv[])
 		} else if (strcmp(command, "clear") == 0) {
 			system("clear");
 		} else if (strcmp(command, "ls") == 0) {
-			inorder(disk, 0);
-		} else if (strcmp(command, "cat") == 0) {
-		/*	sscanf(line, "%s", filename);
-			printf("%s %s\n", command, filename);
-		*/	i = btree_search(disk, filename);
+			inorder(disk, treeno);
+		} else if (strcmp(command, "cd") == 0) {
+			treeno = ch_dir(disk, filename, treeno);
+		} else if (strcmp(command, "mkdir") == 0) {
+			make_dir(disk, filename, treeno);
+		}  else if (strcmp(command, "cat") == 0) {
+			i = btree_search(disk, filename, treeno);
 			if (i == -1) {
 				printf("cat: %s: No such file or directory\n", 
 						filename);
@@ -74,8 +95,6 @@ int main(int argc, char const *argv[])
 				cat_file(disk, i);
 			}
 		} else if (strcmp(command, "vim") == 0) {
-		/*	sscanf(line, "%s", filename);
-			printf("(Filename: %s)", filename); */
 			char input_buffer[3500];
 			int flag = 0;
 			int i = -1;
@@ -95,14 +114,15 @@ int main(int argc, char const *argv[])
 				}
 				input_buffer[i] = ch;
 			}
-			
+
 			while ((getchar()) != '\n');
-			
+
 			flag = 0;
 			input_buffer[i - 2] = '\0';
-			i = btree_search(disk, filename);
+			i = btree_search(disk, filename, treeno);
 			if (i == -1) {
-				btree_insert(disk, filename, input_buffer);
+				btree_insert(disk, filename, 
+						input_buffer, treeno);
 			} else {
 				modify_file(disk, i, input_buffer);
 			}
@@ -110,14 +130,12 @@ int main(int argc, char const *argv[])
 			/* to flush out unwanted data in the input_buffer */
 			memset(input_buffer, 0, sizeof(input_buffer));
 		} else if (strcmp(command, "help") == 0) {
-			printf("ls             : List all awailable files.\n");
-			printf("cat <filename> : Show the content of given "
-					"fileif exist else show error.\n");
-			printf("vim <filename> : Opens a given file if it"
-				" exists else creates new one to modify.\n");
-			printf("clear          : Clear the screen.\n");
-			printf("exit           : To exit from the terminal."
-					" Alternate : press (CTRL + d) \n");
+			help();
+		} else if (strcmp(command, "credits") == 0) {
+			printf("Thanks to Dr. BS Sanjeev to give us this "
+				"opportunity. \n"
+				"Contributors:\nAadithya MD\t MIT2018020\n"
+				"Aditya Sarvaiya\t MIT2018014\n");
 		}
 
 		memset(line, 0, sizeof(line));

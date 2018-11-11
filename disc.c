@@ -10,12 +10,12 @@
 #define MAXDISKS 100
 #define INODEDATA 3960
 #define DISKSIZE 256 * 1024
-#define NAMELENGTH 40
+#define NAMELENGTH 32
 
 FILE *disk_p[MAXDISKS] = {NULL};
 int disk_size[MAXDISKS] = {-1};
 int num_disk = -1;
-int inode_no = -1;
+int inode_no = 0;
 
 struct inode {
 	int inode_no;
@@ -86,10 +86,16 @@ void initFile(char *filename, int nblocks)
 	fseek(fp, 0, SEEK_SET);
 
 	/* Write btree node as 1st node */
-	blk.blk.b.count = 0;
+	blk.blk.b.count = 2;
 	blk.blk.b.is_leaf = 1;
+	blk.blk.b.par = -1;
 	blk.type = 1;
 	blk.blockno = 0;
+	strcpy(blk.blk.b.key[0], ".");
+	strcpy(blk.blk.b.key[1], "..");
+	blk.blk.b.record_ptr[0] = 0;
+	blk.blk.b.record_ptr[1] = 0;
+
 	fwrite(&blk, sizeof(blk), 1, fp);
 
 	/* write bit vector for free list on next n blocks */
@@ -97,19 +103,18 @@ void initFile(char *filename, int nblocks)
 
 	/* n for bit vector 1 for b tree root */
 	n_used = n + 1;
+	
+	for (i = 0; i < MAXFREE; ++i) {
+		blk.blk.f.free[i] = false;
+	}
 
 	k = 1;
 	blk.type = 2;
-	if (n_used > MAXFREE) {
-		for (i = 0; i < MAXFREE; ++i) {
-			blk.blk.f.free[i] = false;
-		}
-		while (n_used > k * MAXFREE) {
-			blk.blockno = k;
-			blk.blk.f.n = n - k;
-			++k;
-			fwrite(&blk, sizeof(blk), 1, fp);
-		}
+	while (n_used > k * MAXFREE) {
+		blk.blockno = k;
+		blk.blk.f.n = n - k;
+		++k;
+		fwrite(&blk, sizeof(blk), 1, fp);
 	}
 
 	if (n_used % MAXFREE > 0) {

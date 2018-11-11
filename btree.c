@@ -3,6 +3,10 @@
 #undef MAXDEG
 #define MAXDEG 5
 
+
+int btree_search(int disk, char name[], int treeno);
+int btree_insert(int disk, char name[], char data[], int treeno);
+
 int print_hash(unsigned char hash[], int n)
 {
 	int i; 
@@ -79,16 +83,69 @@ int cat_file(int disk, int blockno)
 	struct block blk;
 
 	readBlock(disk, blockno, &blk);
-	if (blk.type != 0) {
+	if (blk.type == 3) {
 		printf("Error not a file\n");
 		return -1;
+	} else if (blk.type == 1) {
+		printf("cat: It is a directory\n");
+
+		return 0;
 	}
 	printf("%s\n", blk.blk.i.data);
 	
 	return 0;
 }
 
-int btree_search(int disk, char name[])
+int ch_dir(int disk, char name[], int treeno)
+{
+	struct block blk;
+	int p;
+
+	p = btree_search(disk, name, treeno);
+	
+	if (p == -1) {
+		printf("%s: not found! \n", name);
+	
+		return treeno;
+	}
+
+	readBlock(disk, p, &blk);
+
+	if (blk.type != 1) {
+		printf("Error: not a directory\n");
+		
+		return treeno;
+	} 
+
+	printf("%s\n", name);
+	
+	return p;
+
+}
+
+int make_dir(int disk, char name[], int treeno)
+{
+	struct block blk;
+	int p;
+	char temp[] = "..";
+
+	btree_insert(disk, name, temp, treeno);
+	p = btree_search(disk, name, treeno);
+	readBlock(disk, p, &blk);
+	blk.type = 1;
+	blk.blk.b.par = -1;
+	blk.blk.b.count = 2;
+	blk.blk.b.is_leaf = 1;
+	strcpy(blk.blk.b.key[0], ".");
+	strcpy(blk.blk.b.key[1], "..");
+	blk.blk.b.record_ptr[0] = p;
+	blk.blk.b.record_ptr[1] = treeno;
+	writeBlock(disk, p, &blk);
+
+	return 0;
+}
+
+int btree_search(int disk, char name[], int treeno)
 {
 	struct block rblock;
 	struct block *blk = NULL;
@@ -97,15 +154,17 @@ int btree_search(int disk, char name[])
 	int n;
 
 	blk = &rblock;
-	i = 0;
+	i = treeno;
 	do {
 		readBlock(disk, i, blk);
 		n = blk->blk.b.count;
 		cmp = -1;
-		for (i = 0; i < n && cmp < 0; ++i) {
+		for (i = 0; i < n; ++i) {
 			cmp = strcmp(blk->blk.b.key[i], name);
 			if (cmp == 0) {
 				return blk->blk.b.record_ptr[i];
+			} else if (cmp > 0) {
+				break;
 			}
 		}
 		i = blk->blk.b.ptr[i];
@@ -155,6 +214,15 @@ int insert_sorted(struct bnode *b, char name[], int n)
 	return i;
 }
 
+bool is_root(struct block *blk)
+{
+	if (blk->blockno == 0 || blk->blk.b.par == -1) {
+		return true;
+	}
+	return false;
+}
+
+
 int bBlock_split(int disk, struct block *blk, struct block *parent)
 {
 	int med;
@@ -176,7 +244,7 @@ int bBlock_split(int disk, struct block *blk, struct block *parent)
 	left->blk.b.par = blk->blockno;
 	left->type = 1;
 	
-	if (blk->blockno == 0) {
+	if (is_root(blk) == true) {
 		i = AllocateBlock(disk);
 		left->blockno = i;
 		bnode_copy(&(left->blk.b), &(blk->blk.b), 0, med - 1);
@@ -244,9 +312,14 @@ void inorder(int disk, int blockno)
 			inorder(disk, blk.blk.b.ptr[i]);
 		}
 		readBlock(disk, blk.blk.b.record_ptr[i], &t);
-		printf("%-12s  %2ld bytes  Inode no: %2d  sha256: ", 
-			blk.blk.b.key[i], t.blk.i.size, t.blk.i.inode_no);
+		if (t.type == 0) {
+			printf("%-12s  %2ld bytes  Inode no: %2d  sha256: ", 
+				blk.blk.b.key[i], t.blk.i.size, 
+				t.blk.i.inode_no);
 			print_hash(t.blk.i.hash, 3);
+		} else if (t.type == 1) {
+			printf("%-12s it is a directory\n", blk.blk.b.key[i]);
+		}
 	}
 	if (blk.blk.b.is_leaf == false) {
 		inorder(disk, blk.blk.b.ptr[i]);
@@ -267,7 +340,7 @@ int leaf_insert(struct bnode *b, char name[], int rptr)
 	return i;
 }
 
-int btree_insert(int disk, char name[], char data[])
+int btree_insert(int disk, char name[], char data[], int treeno)
 {
 	struct block rblock;
 	struct block cblock;
@@ -289,7 +362,7 @@ int btree_insert(int disk, char name[], char data[])
 	strcpy(rblock.blk.i.data, data);
 	writeBlock(disk, rptr, &rblock);
 
-	readBlock(disk, 0, &rblock);
+	readBlock(disk, treeno, &rblock);
 	blk = &rblock;
 	
 	/* Traverse till the leaf Splitting all full nodes on path */
