@@ -26,8 +26,7 @@ void hashcpy(unsigned char h1[SHA256_DIGEST_LENGTH],
 	h2[i] = '\0';
 }
 
-int binary_search(unsigned char key[][SHA256_DIGEST_LENGTH], 
-		unsigned char hash[], int n)
+int binary_search(char key[][NAMELENGTH], char name[], int n)
 {
 	int mid;
 	int beg;
@@ -42,8 +41,7 @@ int binary_search(unsigned char key[][SHA256_DIGEST_LENGTH],
 
 	while (beg <= end) {
 		mid = (beg + end) / 2;
-		cmp = strncmp((const char *) key[mid], 
-				(const char *) hash, SHA256_DIGEST_LENGTH);
+		cmp = strcmp(key[mid], name);
 		
 		if (cmp == 0) {
 			return mid;
@@ -94,21 +92,18 @@ int btree_search(int disk, char name[])
 {
 	struct block rblock;
 	struct block *blk = NULL;
-	unsigned char hash[SHA256_DIGEST_LENGTH];
 	int i;
 	int cmp;
 	int n;
 
 	blk = &rblock;
-	SHA256((unsigned char *) name, strlen(name), hash);
 	i = 0;
 	do {
 		readBlock(disk, i, blk);
 		n = blk->blk.b.count;
 		cmp = -1;
 		for (i = 0; i < n && cmp < 0; ++i) {
-			cmp = strncmp((const char *)blk->blk.b.key[i], 
-				(const char *) hash, SHA256_DIGEST_LENGTH - 3);
+			cmp = strcmp(blk->blk.b.key[i], name);
 			if (cmp == 0) {
 				return blk->blk.b.record_ptr[i];
 			}
@@ -128,7 +123,7 @@ int bnode_copy(struct bnode *dest, struct bnode *src, int beg, int end)
 	dest->count = n;
 
 	for (i = 0; i < n; ++i) {
-		hashcpy(dest->key[i], src->key[beg + i]);
+		strcpy(dest->key[i], src->key[beg + i]);
 		dest->record_ptr[i] = src->record_ptr[beg + i];
 		dest->ptr[i] = src->ptr[beg + i];
 	}
@@ -138,25 +133,24 @@ int bnode_copy(struct bnode *dest, struct bnode *src, int beg, int end)
 }
 
 
-int insert_sorted(struct bnode *b, unsigned char hash[], int n)
+int insert_sorted(struct bnode *b, char name[], int n)
 {
 	int i;
 	int j;
 
 	for (i = 0; i < n; ++i) {
-		if (strncmp((const char *) b->key[i], (const char *) hash, 
-					SHA256_DIGEST_LENGTH) > 0) {
+		if (strcmp(b->key[i], name) > 0) {
 			break;
 		}
 	}
 
 	for (j = n; j > i; --j) {
-		hashcpy(b->key[j], b->key[j - 1]);
+		strcpy(b->key[j], b->key[j - 1]);
 		b->record_ptr[j] = b->record_ptr[j - 1];
 		b->ptr[j + 1] = b->ptr[j];
 	}
 	b->ptr[j + 1] = b->ptr[j]; /* testin */
-	hashcpy(b->key[i], hash);
+	strcpy(b->key[i], name);
 
 	return i;
 }
@@ -250,9 +244,9 @@ void inorder(int disk, int blockno)
 			inorder(disk, blk.blk.b.ptr[i]);
 		}
 		readBlock(disk, blk.blk.b.record_ptr[i], &t);
-		printf("%-8s  %2ld bytes  Inode no: %2d  sha256: ", 
-			t.blk.i.name, t.blk.i.size, t.blk.i.inode_no);
-		print_hash(blk.blk.b.key[i], 3);
+		printf("%-12s  %2ld bytes  Inode no: %2d  sha256: ", 
+			blk.blk.b.key[i], t.blk.i.size, t.blk.i.inode_no);
+			print_hash(t.blk.i.hash, 3);
 	}
 	if (blk.blk.b.is_leaf == false) {
 		inorder(disk, blk.blk.b.ptr[i]);
@@ -263,13 +257,11 @@ int leaf_insert(struct bnode *b, char name[], int rptr)
 {
 	int i;
 	int n;	
-	unsigned char hash[SHA256_DIGEST_LENGTH]; 
 
-	SHA256((unsigned char *) name, strlen(name), hash);
 	n = b->count;
 	(b->count)++;
 
-	i = insert_sorted(b, hash, n);
+	i = insert_sorted(b, name, n);
 	b->record_ptr[i] = rptr;
 
 	return i;
@@ -286,14 +278,14 @@ int btree_insert(int disk, char name[], char data[])
 	int i;
 	int rptr;
 
-	SHA256((unsigned char *) name, strlen(name), hash);
+	SHA256((unsigned char *) data, strlen(data), hash);
 		
 	rptr = AllocateBlock(disk);
 	rblock.blockno = rptr;
 	rblock.type = 0;
 	rblock.blk.i.inode_no = getInodeNo();
 	rblock.blk.i.size = (int) strlen(data);
-	strcpy(rblock.blk.i.name, name);
+	hashcpy(rblock.blk.i.hash, hash);
 	strcpy(rblock.blk.i.data, data);
 	writeBlock(disk, rptr, &rblock);
 
@@ -315,7 +307,7 @@ int btree_insert(int disk, char name[], char data[])
 			
 		}
 		
-		i = binary_search(blk->blk.b.key, hash, blk->blk.b.count);
+		i = binary_search(blk->blk.b.key, name, blk->blk.b.count);
 		i = blk->blk.b.ptr[i];
 
 		if (parent == NULL) {

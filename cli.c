@@ -10,7 +10,7 @@
 
 void intro_message()
 {
-	printf("Simple File system v1 (Nov 09 2018, 14:31:34)\n" 
+	printf("Simple File system v2 (Nov 09 2018, 14:31:34)\n" 
 		"[GCC 7.3.0] on linux \n"
 		"Type help for more information.\n");
 }
@@ -29,8 +29,9 @@ int readData(char *s1, int length) {
 	}
 	s1[i] = '\0';
 	if (s1[0] == EOF) {
-		printf("exit\nlogout\n");
-		exit(0);
+		printf("exit\n");
+		strcpy(s1,"exit");
+		
 	}
 
 	return strlen(s1);

@@ -10,6 +10,7 @@
 #define MAXDISKS 100
 #define INODEDATA 3960
 #define DISKSIZE 256 * 1024
+#define NAMELENGTH 40
 
 FILE *disk_p[MAXDISKS] = {NULL};
 int disk_size[MAXDISKS] = {-1};
@@ -20,7 +21,7 @@ struct inode {
 	int inode_no;
 	long size;
 	bool is_dir;
-	char name[40];
+	unsigned char hash[SHA256_DIGEST_LENGTH];
 	char data[INODEDATA];
 	int point[12];
 	int Single;
@@ -34,7 +35,7 @@ struct freeList {
 
 struct bnode {
 	int count;
-	unsigned char key[MAXDEG - 1][SHA256_DIGEST_LENGTH];
+	char key[MAXDEG - 1][NAMELENGTH];
 	int record_ptr[MAXDEG - 1];
 	int ptr[MAXDEG];
 	int par;
