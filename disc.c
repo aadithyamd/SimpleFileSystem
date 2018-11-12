@@ -159,9 +159,10 @@ int openDisk(char *filename, int nblocks)
 	num_disk++;
 	disk_p[num_disk] = fopen(filename, "rb+");
 
-	if (inode_no == -1 && num_disk == 0) {
+	if (inode_no == 0 && num_disk == 0) {
 		fseek(disk_p[num_disk], -1 * sizeof(int), SEEK_END);
 		fread(&inode_no, sizeof(int), 1, disk_p[num_disk]);
+		/*printf("Last inode no: %d\n", inode_no);*/
 	}
 
 	disk_size[num_disk] = nblocks;
@@ -174,6 +175,7 @@ int closeDisk(int n)
 	if (n == 0) {
 		fseek(disk_p[n], -1 * sizeof(int), SEEK_END);
 		fwrite(&inode_no, sizeof(int), 1, disk_p[n]);
+		/*printf("Last inode no: %d\n", inode_no);*/
 	}
 	fclose(disk_p[n]);
 	
