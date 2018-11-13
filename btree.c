@@ -65,14 +65,20 @@ int binary_search(char key[][NAMELENGTH], char name[], int n)
 int modify_file(int disk, int blockno, char data[])
 {
 	struct block blk;
+	unsigned char hash[SHA256_DIGEST_LENGTH];
 
 	readBlock(disk, blockno, &blk);
 	if (blk.type != 0) {
 		printf("Error not a file\n");
 		return -1;
 	}
+	
+	SHA256((unsigned char *) data, strlen(data), hash);
+	
 	strcpy(blk.blk.i.data, data);
 	blk.blk.i.size = (int) strlen(data);
+	hashcpy(blk.blk.i.hash, hash);
+
 	writeBlock(disk, blockno, &blk);
 
 	return 0;
