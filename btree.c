@@ -642,6 +642,12 @@ int btree_delete(int disk, char name[], int treeno)
 
 	i = bnode_search(disk, name, &pos, &rptr, treeno);
 
+	if (i == -1) {
+		printf("rm: cannot remove '%s': No such"
+				" file or directory\n", name);
+
+		return -1;
+	}
 	/* Check & free the memory allocated to file */
 	readBlock(disk, rptr, &blk);
 	if (blk.type == 1) {

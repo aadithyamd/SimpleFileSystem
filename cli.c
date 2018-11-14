@@ -49,6 +49,8 @@ void help()
 				"file if it exist else show error.\n");
 	printf("vim <filename>   : Overwrite a file if it"
 				" exists else creates new one.\n");
+	printf("rm <name> (BETA) : Removes the file or empty directory"
+				" if it exists else returns error.\n");
 	printf("clear            : Clear the screen.\n");
 	printf("exit             : To exit from the terminal."
 				" Alternate : press (CTRL + d) \n");
@@ -138,6 +140,8 @@ int main(int argc, char const *argv[])
 				"opportunity. \n"
 				"Contributors:\nAadithya MD\t MIT2018020\n"
 				"Aditya Sarvaiya\t MIT2018014\n");
+		} else if (strcmp(command, "exit") != 0) {
+			printf("%s: command not found!\n", command);
 		}
 
 		memset(line, 0, sizeof(line));
