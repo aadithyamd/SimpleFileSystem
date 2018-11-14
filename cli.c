@@ -43,7 +43,7 @@ void help()
 	printf("ls               : List all available files.\n");
 	printf("cd <path>        : To change the current working "
 				"directory.\n");
-	printf("mkdir <filename> : To Add the new directory in the "
+	printf("mkdir <dirname>  : To Add the new directory in the "
 				"current directory\n");
 	printf("cat <filename>   : Show the content of given "
 				"file if it exist else show error.\n");
@@ -86,6 +86,8 @@ int main(int argc, char const *argv[])
 			treeno = ch_dir(disk, filename, treeno);
 		} else if (strcmp(command, "mkdir") == 0) {
 			make_dir(disk, filename, treeno);
+		} else if (strcmp(command, "rm") == 0) {
+			btree_delete(disk, filename, treeno);
 		}  else if (strcmp(command, "cat") == 0) {
 			i = btree_search(disk, filename, treeno);
 			if (i == -1) {
