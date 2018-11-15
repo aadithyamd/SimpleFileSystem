@@ -1,9 +1,5 @@
 #include "disc.c"
 
-#undef MAXDEG
-#define MAXDEG 5
-
-
 int btree_search(int disk, char name[], int treeno);
 int btree_insert(int disk, char name[], char data[], int treeno);
 
@@ -36,9 +32,9 @@ int binary_search(char key[][NAMELENGTH], char name[], int n)
 	int beg;
 	int end;
 	int cmp;
+
 	beg = 0;
 	end = n - 1;
-
 	if (n <= 0) {
 		return 0;
 	}
@@ -67,7 +63,7 @@ int modify_file(int disk, int blockno, char data[])
 	struct block blk;
 	unsigned char hash[SHA256_DIGEST_LENGTH];
 
-	readBlock(disk, blockno, &blk);
+	read_block(disk, blockno, &blk);
 	if (blk.type != 0) {
 		printf("Error not a file\n");
 		return -1;
@@ -79,7 +75,7 @@ int modify_file(int disk, int blockno, char data[])
 	blk.blk.i.size = (int) strlen(data);
 	hashcpy(blk.blk.i.hash, hash);
 
-	writeBlock(disk, blockno, &blk);
+	write_block(disk, blockno, &blk);
 
 	return 0;
 }
@@ -88,7 +84,7 @@ int cat_file(int disk, int blockno)
 {
 	struct block blk;
 
-	readBlock(disk, blockno, &blk);
+	read_block(disk, blockno, &blk);
 	if (blk.type == 3) {
 		printf("Error not a file\n");
 		return -1;
@@ -115,7 +111,7 @@ int ch_dir(int disk, char name[], int treeno)
 		return treeno;
 	}
 
-	readBlock(disk, p, &blk);
+	read_block(disk, p, &blk);
 
 	if (blk.type != 1) {
 		printf("Error: not a directory\n");
@@ -126,7 +122,6 @@ int ch_dir(int disk, char name[], int treeno)
 	printf("%s\n", name);
 
 	return p;
-
 }
 
 int make_dir(int disk, char name[], int treeno)
@@ -137,7 +132,7 @@ int make_dir(int disk, char name[], int treeno)
 
 	btree_insert(disk, name, temp, treeno);
 	p = btree_search(disk, name, treeno);
-	readBlock(disk, p, &blk);
+	read_block(disk, p, &blk);
 	blk.type = 1;
 	blk.blk.b.par = -1;
 	blk.blk.b.count = 2;
@@ -146,7 +141,7 @@ int make_dir(int disk, char name[], int treeno)
 	strcpy(blk.blk.b.key[1], "..");
 	blk.blk.b.record_ptr[0] = p;
 	blk.blk.b.record_ptr[1] = treeno;
-	writeBlock(disk, p, &blk);
+	write_block(disk, p, &blk);
 
 	return 0;
 }
@@ -162,7 +157,7 @@ int bnode_search(int disk, char name[], int *pos, int *rptr, int treeno)
 	blk = &rblock;
 	i = treeno;
 	do {
-		readBlock(disk, i, blk);
+		read_block(disk, i, blk);
 		n = blk->blk.b.count;
 		cmp = -1;
 		for (i = 0; i < n; ++i) {
@@ -242,10 +237,11 @@ bool is_root(struct block *blk)
 	if (blk->blockno == 0 || blk->blk.b.par == -1) {
 		return true;
 	}
+	
 	return false;
 }
 
-int bBlock_split(int disk, struct block *blk, struct block *parent)
+int b_block_split(int disk, struct block *blk, struct block *parent)
 {
 	int med;
 	int n;
@@ -267,26 +263,27 @@ int bBlock_split(int disk, struct block *blk, struct block *parent)
 	left->type = 1;
 
 	if (is_root(blk) == true) {
-		i = AllocateBlock(disk);
+		i = allocate_block(disk);
 		left->blockno = i;
 		bnode_copy(&(left->blk.b), &(blk->blk.b), 0, med - 1);
-		writeBlock(disk, i, left);
+		write_block(disk, i, left);
 
 		bnode_copy(&(blk->blk.b), &(blk->blk.b), med, med);
 		blk->blk.b.ptr[0] = i;
 
 		right = left;
-		i = AllocateBlock(disk);
+		i = allocate_block(disk);
 		right->blockno = i;
 		bnode_copy(&(right->blk.b), &(blk->blk.b), med + 1, n);
-		writeBlock(disk, i, right);
+		write_block(disk, i, right);
 
 		blk->blk.b.ptr[1] = i;
 		blk->blk.b.is_leaf = false;
-		writeBlock(disk, 0, blk);
+		write_block(disk, 0, blk);
 	} else {
 		if (parent == NULL) {
 			printf("Error non root passed without parent!!\n");
+	
 			return -1;
 		}
 		pos = insert_sorted(&(parent->blk.b), 
@@ -298,20 +295,20 @@ int bBlock_split(int disk, struct block *blk, struct block *parent)
 		parent->blk.b.count++;
 
 		blk->blk.b.count = med;	
-		writeBlock(disk, blk->blockno, blk);
+		write_block(disk, blk->blockno, blk);
 
 		right = left;
-		i = AllocateBlock(disk);
+		i = allocate_block(disk);
 		right->blockno = i;
 		bnode_copy(&(right->blk.b), &(blk->blk.b), med + 1, n);
-		writeBlock(disk, i, right);
+		write_block(disk, i, right);
 
 		/* Right pointer to newly allocated node  */
 		parent->blk.b.ptr[pos + 1] = i;
 
 		/* Write parent to memory */
 		i = parent->blockno;
-		writeBlock(disk, i, parent);
+		write_block(disk, i, parent);
 
 	}
 	free(left);
@@ -326,14 +323,14 @@ void inorder(int disk, int blockno)
 	int i;
 	int n;
 
-	readBlock(disk, blockno, &blk);
+	read_block(disk, blockno, &blk);
 	n = blk.blk.b.count;
 
 	for (i = 0; i < n; ++i) {
 		if (blk.blk.b.is_leaf == false) {
 			inorder(disk, blk.blk.b.ptr[i]);
 		}
-		readBlock(disk, blk.blk.b.record_ptr[i], &t);
+		read_block(disk, blk.blk.b.record_ptr[i], &t);
 		if (t.type == 0) {
 			printf("%-12s  %2ld bytes  Inode no: %2d  sha256: ", 
 					blk.blk.b.key[i], t.blk.i.size, 
@@ -375,16 +372,16 @@ int btree_insert(int disk, char name[], char data[], int treeno)
 
 	SHA256((unsigned char *) data, strlen(data), hash);
 
-	rptr = AllocateBlock(disk);
+	rptr = allocate_block(disk);
 	rblock.blockno = rptr;
 	rblock.type = 0;
-	rblock.blk.i.inode_no = getInodeNo();
+	rblock.blk.i.inode_no = get_inode_no();
 	rblock.blk.i.size = (int) strlen(data);
 	hashcpy(rblock.blk.i.hash, hash);
 	strcpy(rblock.blk.i.data, data);
-	writeBlock(disk, rptr, &rblock);
+	write_block(disk, rptr, &rblock);
 
-	readBlock(disk, treeno, &rblock);
+	read_block(disk, treeno, &rblock);
 	blk = &rblock;
 
 	/* Traverse till the leaf Splitting all full nodes on path */
@@ -392,7 +389,7 @@ int btree_insert(int disk, char name[], char data[], int treeno)
 			(blk->blk.b.count >= (MAXDEG - 1))) {
 
 		if (blk->blk.b.count >= (MAXDEG - 1)) {
-			bBlock_split(disk, blk, parent);
+			b_block_split(disk, blk, parent);
 
 			if (parent != NULL) {
 				temp = parent;
@@ -411,18 +408,18 @@ int btree_insert(int disk, char name[], char data[], int treeno)
 		temp = parent;
 		parent = blk;
 		blk = temp;
-		readBlock(disk, i, blk);
+		read_block(disk, i, blk);
 	}
 
 	leaf_insert(&(blk->blk.b), name, rptr);
 	i = blk->blockno;
-	writeBlock(disk, i, blk);
+	write_block(disk, i, blk);
 
 	return 0;
 }
 
 /*	It merges 2 nodes along with another key	*/
-int bBlock_merge(struct block *left, struct block *right, 
+int b_block_merge(struct block *left, struct block *right, 
 		char *name, int rptr)
 {
 	int n1;
@@ -434,8 +431,7 @@ int bBlock_merge(struct block *left, struct block *right,
 	}
 
 	i = (left->blk.b.count + right->blk.b.count + 1); 
-	if (i >= MAXDEG) 
-	{
+	if (i >= MAXDEG) {
 		return -1;
 	}
 
@@ -472,7 +468,6 @@ void leftShift(struct bnode *b)
 		b->ptr[i] = b->ptr[i + 1];
 	}
 	b->ptr[i] = b->ptr[i + 1];
-
 }
 
 void rightShift(struct bnode *b)
@@ -487,7 +482,6 @@ void rightShift(struct bnode *b)
 		b->record_ptr[i + 1] = b->record_ptr[i];
 		b->ptr[i + 1] = b->ptr[i];
 	}
-
 }
 
 int delFromNode(struct bnode *b, char name[])
@@ -503,11 +497,13 @@ int delFromNode(struct bnode *b, char name[])
 			break;
 		} else if (cmp > 0) {
 			printf("File not found \n");
+	
 			return -1;
 		}
 	}
 	if (i == n) {
 		printf("File not found \n");
+	
 		return -1;
 	}
 
@@ -533,11 +529,11 @@ int balance(int disk, int blockno, char name[])
 	int i;
 
 	while (true) {
-		readBlock(disk, blockno, &blk);
+		read_block(disk, blockno, &blk);
 		if (blk.blk.b.count >= MAXDEG - 1 || blk.blk.b.par == -1) {
 			return 0;
 		}
-		readBlock(disk, blk.blk.b.par, &parent);
+		read_block(disk, blk.blk.b.par, &parent);
 		pos = binary_search(blk.blk.b.key, name, blk.blk.b.count);
 
 		if (pos == -1) {
@@ -548,13 +544,13 @@ int balance(int disk, int blockno, char name[])
 
 		if (parent.blk.b.ptr[pos] == blk.blockno) {
 			/* Left child */
-			readBlock(disk, parent.blk.b.ptr[pos + 1], &sibling);
+			read_block(disk, parent.blk.b.ptr[pos + 1], &sibling);
 			left = &blk;
 			right = &sibling;
 
 		} else if (parent.blk.b.ptr[pos + 1] == blk.blockno) {
 			/* Right Child */
-			readBlock(disk, parent.blk.b.ptr[pos], &sibling);
+			read_block(disk, parent.blk.b.ptr[pos], &sibling);
 			left = &sibling;
 			right = &blk;
 		} else {
@@ -565,20 +561,20 @@ int balance(int disk, int blockno, char name[])
 
 		if(left->blk.b.count + right->blk.b.count < MAXDEG - 1) {
 			/* Merge */
-			i = bBlock_merge(left, right, blk.blk.b.key[pos],
+			i = b_block_merge(left, right, blk.blk.b.key[pos],
 					blk.blk.b.record_ptr[pos]);
 			if (i == -1) {
 				printf("Error Merging\n");
 
 				return -1;
 			}
-			FreeBlock(disk, left->blockno);
+			free_block(disk, left->blockno);
 
 			left->blockno = right->blockno;	
-			writeBlock(disk, left->blockno, left);
+			write_block(disk, left->blockno, left);
 
 			delFromNode(&(parent.blk.b), parent.blk.b.key[pos]);
-			writeBlock(disk, blk.blockno, &blk);
+			write_block(disk, blk.blockno, &blk);
 			
 			blockno = parent.blockno;
 		} else if (left->blk.b.count < right->blk.b.count) {
@@ -597,9 +593,9 @@ int balance(int disk, int blockno, char name[])
 			leftShift(&(right->blk.b));
 			--(right->blk.b.count);
 			
-			writeBlock(disk, parent.blockno, &parent);
-			writeBlock(disk, left->blockno, left);
-			writeBlock(disk, right->blockno, right);
+			write_block(disk, parent.blockno, &parent);
+			write_block(disk, left->blockno, left);
+			write_block(disk, right->blockno, right);
 
 			return 0;
 		} else {
@@ -617,9 +613,9 @@ int balance(int disk, int blockno, char name[])
 				left->blk.b.record_ptr[i];
 			--(left->blk.b.count);
 			
-			writeBlock(disk, parent.blockno, &parent);
-			writeBlock(disk, left->blockno, left);
-			writeBlock(disk, right->blockno, right);
+			write_block(disk, parent.blockno, &parent);
+			write_block(disk, left->blockno, left);
+			write_block(disk, right->blockno, right);
 
 			return 0;
 		}
@@ -630,7 +626,7 @@ int balance(int disk, int blockno, char name[])
 	return 0;
 }
 
-int btree_delete(int disk, char name[], int treeno)
+int btree_delete(int disk, char name[], int treeno, bool delData)
 {
 	struct block blk;
 	struct block left;
@@ -649,78 +645,82 @@ int btree_delete(int disk, char name[], int treeno)
 		return -1;
 	}
 	/* Check & free the memory allocated to file */
-	readBlock(disk, rptr, &blk);
-	if (blk.type == 1) {
-		if (blk.blockno == 0) {
-			printf("Can't delete root directory\n");
-			return -1;
-		} else if (blk.blk.b.count > 2) {
-			printf("Directory not empty!\n");
+	if (delData == true) {
+		read_block(disk, rptr, &blk);
+		if (blk.type == 1) {
+			if (blk.blockno == 0) {
+				printf("Can't delete root directory\n");
+	
+				return -1;
+			} else if (blk.blk.b.count > 2) {
+				printf("Directory not empty!\n");
+	
+				return -1;
+			}
+		} else if (blk.type != 0) {
+			printf("Error can't delete\n");
+	
 			return -1;
 		}
-	} else if (blk.type != 0) {
-		printf("Error can't delete\n");
-		return -1;
+
+		free_block(disk, rptr);
 	}
 
-	FreeBlock(disk, rptr);
-
-	readBlock(disk, i, &blk);
+	read_block(disk, i, &blk);
 
 	if (blk.blk.b.is_leaf == true) {
 		delFromNode(&(blk.blk.b), name);
-		writeBlock(disk, blk.blockno, &blk);
+		write_block(disk, blk.blockno, &blk);
 
 		if (blk.blk.b.count < (MAXDEG / 2 - 1)) {
 			balance(disk, blk.blockno, name);
 		}
 	} else {
-		readBlock(disk, blk.blk.b.ptr[pos], &left);
-		readBlock(disk, blk.blk.b.ptr[pos + 1], &right);
+		read_block(disk, blk.blk.b.ptr[pos], &left);
+		read_block(disk, blk.blk.b.ptr[pos + 1], &right);
 
 		if (left.blk.b.count >= MAXDEG / 2) {
 			temp = left.blk.b.count - 1;
 			strcpy(blk.blk.b.key[pos],  left.blk.b.key[temp]);
 			blk.blk.b.record_ptr[pos] = 
 				left.blk.b.record_ptr[temp];
-			btree_delete(disk, left.blk.b.key[temp], left.blockno);
-			writeBlock(disk, blk.blockno, &blk);
+			btree_delete(disk, left.blk.b.key[temp], left.blockno, false);
+			write_block(disk, blk.blockno, &blk);
 		} else if (right.blk.b.count >= MAXDEG / 2) {
 			temp = right.blk.b.count - 1;
 			strcpy(blk.blk.b.key[pos],  right.blk.b.key[temp]);
 			blk.blk.b.record_ptr[pos] = 
 				right.blk.b.record_ptr[temp];
 			btree_delete(disk, right.blk.b.key[temp], 
-					right.blockno);
-			writeBlock(disk, blk.blockno, &blk);
+					right.blockno, false);
+			write_block(disk, blk.blockno, &blk);
 		} else {
 			/* Merge */
-			i = bBlock_merge(&left, &right, blk.blk.b.key[pos],
+			i = b_block_merge(&left, &right, blk.blk.b.key[pos],
 					blk.blk.b.record_ptr[pos]);
 			if (i == -1) {
 				printf("Error Merging\n");
 
 				return -1;
 			}
-			FreeBlock(disk, left.blockno);
+			free_block(disk, left.blockno);
 
 			left.blockno = right.blockno;	
-			writeBlock(disk, left.blockno, &left);
+			write_block(disk, left.blockno, &left);
 
 			delFromNode(&(blk.blk.b), name);
-			writeBlock(disk, blk.blockno, &blk);
+			write_block(disk, blk.blockno, &blk);
 
-			btree_delete(disk, name, left.blockno);
+			btree_delete(disk, name, left.blockno, false);
 
 			if (blk.blk.b.count == 0) {
-				FreeBlock(disk, left.blockno);
+				free_block(disk, left.blockno);
 				left.blockno = blk.blockno;
-				writeBlock(disk, left.blockno, &left);
+				write_block(disk, left.blockno, &left);
 			} else {
 				balance(disk, blk.blockno, name);
 			}
 		}
-
 	}
 
 	return 0;

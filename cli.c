@@ -14,7 +14,7 @@ void intro_message()
 			"[GCC 7.3.0] on linux \n"
 			"Type 'help' or 'credits' for more information.\n");
 }
-int readData(char *s1, int length) {
+int read_data(char *s1, int length) {
 	char ch;
 	int i;
 	i = 0;
@@ -68,11 +68,11 @@ int main(int argc, char const *argv[])
 
 	treeno = 0;
 
-	disk = openDisk("hd1", DISKSIZE);
+	disk = open_disk("hd1", DISKSIZE);
 	intro_message();
 	while (strcmp(command, "exit") != 0) {
 		printf(GREEN "Learners@FileSystem$ " RESET);
-		readData(line, 100);	
+		read_data(line, 100);	
 		memset(command, 0, sizeof(command));
 		sscanf(line, "%s %s", command, filename);
 
@@ -89,7 +89,7 @@ int main(int argc, char const *argv[])
 		} else if (strcmp(command, "mkdir") == 0) {
 			make_dir(disk, filename, treeno);
 		} else if (strcmp(command, "rm") == 0) {
-			btree_delete(disk, filename, treeno);
+			btree_delete(disk, filename, treeno, true);
 		}  else if (strcmp(command, "cat") == 0) {
 			i = btree_search(disk, filename, treeno);
 			if (i == -1) {
@@ -148,7 +148,7 @@ int main(int argc, char const *argv[])
 		memset(filename, 0, sizeof(filename));
 	}
 	printf("logout\n");
-	closeDisk(disk);
+	close_disk(disk);
 
 	return 0;
 }

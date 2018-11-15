@@ -28,7 +28,7 @@ struct inode {
 	int Double;
 };
 
-struct freeList {
+struct free_list {
 	int n;
 	bool free[MAXFREE];
 };
@@ -45,7 +45,7 @@ struct bnode {
 union block_type {
 	struct inode i;
 	struct bnode b;
-	struct freeList f;
+	struct free_list f;
 };
 
 struct block {
@@ -54,22 +54,22 @@ struct block {
 	union block_type blk;
 };
 
-int openDisk(char *filename, int nblocks);
-int closeDisks();
-int readBlock(int disk, int blockno, struct block *blk);
-int writeBlock(int disk, int blockno, struct block *blk);
-int AllocateBlock(int disk);
-int FreeBlock(int disk, int blockno);
-int getInodeNo();
-/*void syncDisk();*/
+int open_disk(char *filename, int nblocks);
+int close_disk();
+int read_block(int disk, int blockno, struct block *blk);
+int write_block(int disk, int blockno, struct block *blk);
+int allocate_block(int disk);
+int free_block(int disk, int blockno);
+int get_inode_no();
+/*void sync_disk();*/
 
-int getInodeNo()
+int get_inode_no()
 {
 	++inode_no;
 	return inode_no;
 }
 
-void initFile(char *filename, int nblocks)
+void init_file(char *filename, int nblocks)
 {
 	FILE *fp = NULL;
 	int n;
@@ -145,13 +145,13 @@ void initFile(char *filename, int nblocks)
 	fclose(fp);
 }
 
-int openDisk(char *filename, int nblocks)
+int open_disk(char *filename, int nblocks)
 {
 	FILE *fp;
 
 	fp = fopen(filename, "rb");
 	if (fp == NULL) {
-		initFile(filename, nblocks);
+		init_file(filename, nblocks);
 	} else {
 		fclose(fp);
 	}
@@ -170,7 +170,7 @@ int openDisk(char *filename, int nblocks)
 	return num_disk;
 }
 
-int closeDisk(int n)
+int close_disk(int n)
 {
 	if (n == 0) {
 		fseek(disk_p[n], -1 * sizeof(int), SEEK_END);
@@ -184,7 +184,7 @@ int closeDisk(int n)
 
 
 
-int readBlock(int disk, int blockno, struct block *blk)
+int read_block(int disk, int blockno, struct block *blk)
 {
 	FILE *fp;
 	if (disk > num_disk) {
@@ -198,7 +198,7 @@ int readBlock(int disk, int blockno, struct block *blk)
 	return 0;
 }
 
-int writeBlock(int disk, int blockno, struct block *blk)
+int write_block(int disk, int blockno, struct block *blk)
 {
 	FILE *fp;
 	if (disk > num_disk) {
@@ -212,7 +212,7 @@ int writeBlock(int disk, int blockno, struct block *blk)
 	return 0;
 }
 
-int AllocateBlock(int disk)
+int allocate_block(int disk)
 {
 	struct block blk;
 	int b;
@@ -221,9 +221,9 @@ int AllocateBlock(int disk)
 
 	n = (int) ceil(disk_size[disk] * 1.0 / MAXFREE);
 	for (b = 1; b <=n; ++b) {
-		readBlock(disk, b, &blk);
+		read_block(disk, b, &blk);
 
-		/* break if it is not a freeList block */
+		/* break if it is not a free_list block */
 		if (blk.type != 2) {
 			break;
 		}
@@ -232,7 +232,7 @@ int AllocateBlock(int disk)
 			/* return the free block no */
 			if(blk.blk.f.free[i] == true) {
 				blk.blk.f.free[i] = false;
-				writeBlock(disk, b, &blk);
+				write_block(disk, b, &blk);
 
 				return (b - 1) * MAXFREE + i;	
 			}
@@ -243,7 +243,7 @@ int AllocateBlock(int disk)
 	return -1;
 }
 
-int FreeBlock(int disk, int blockno)
+int free_block(int disk, int blockno)
 {
 	struct block blk;
 	int b;
@@ -251,14 +251,14 @@ int FreeBlock(int disk, int blockno)
 
 	b = 1 + blockno / MAXFREE;
 	n = blockno % MAXFREE;
-	readBlock(disk, b, &blk);
+	read_block(disk, b, &blk);
 	if(blk.blk.f.free[n] == true) {
 		return 0;
 	} else {
 		/* Todo: Add protection here */
 		blk.blk.f.free[n] = true;
 	}
-	writeBlock(disk, b, &blk);
+	write_block(disk, b, &blk);
 
 	return 0;
 }
